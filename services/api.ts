@@ -5,7 +5,7 @@ const isClient = typeof window !== "undefined"
 
 // Create axios instance with base configuration
 const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000",
+  baseURL: process.env.NEXT_PUBLIC_API_URL || "https://reminder-app-node-api-production.up.railway.app",
   timeout: 10000,
   headers: {
     "Content-Type": "application/json",
