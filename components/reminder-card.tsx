@@ -10,6 +10,7 @@ import { Clock, AlertCircle, CheckCircle2, Edit, Trash2, MoreHorizontal, AlarmCl
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import ReminderForm, { type ReminderFormData } from "./reminder-form"
 import type { Reminder, ReminderUpdateData } from "@/services/api"
+import { formatDateToYYYYMMDD, formatDateTimeDisplay, calculateTimeRemaining } from "@/lib/utils"
 
 interface ReminderCardProps {
   reminder: Reminder
@@ -58,42 +59,8 @@ export default function ReminderCard({ reminder, onEdit, onDelete, onComplete, o
     }
   }
 
-  const formatTimeRemaining = (date: string, time: string) => {
-    try {
-      // Handle ISO date format (2025-09-09T00:00:00.000Z) and time separately
-      let dueDate: Date
-      if (date.includes('T')) {
-        // If date is already in ISO format, use it directly
-        dueDate = new Date(date)
-      } else {
-        // If date is simple format, combine with time
-        dueDate = new Date(`${date}T${time}`)
-      }
-      
-      // Check if the date is valid
-      if (isNaN(dueDate.getTime())) {
-        return "Invalid date"
-      }
-      
-      const now = new Date()
-      const diff = dueDate.getTime() - now.getTime()
-      const days = Math.floor(Math.abs(diff) / (1000 * 60 * 60 * 24))
-      const hours = Math.floor((Math.abs(diff) % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
-      const minutes = Math.floor((Math.abs(diff) % (1000 * 60 * 60)) / (1000 * 60))
-
-      if (diff < 0) {
-        if (days > 0) return `${days}d ${hours}h overdue`
-        if (hours > 0) return `${hours}h ${minutes}m overdue`
-        return `${minutes}m overdue`
-      } else {
-        if (days > 0) return `${days}d ${hours}h remaining`
-        if (hours > 0) return `${hours}h ${minutes}m remaining`
-        return `${minutes}m remaining`
-      }
-    } catch (error) {
-      console.warn("Error formatting time remaining:", error)
-      return "Invalid date"
-    }
+  const formatTimeRemaining = () => {
+    return calculateTimeRemaining(reminder.fullDateTime || '', reminder.date, reminder.time)
   }
 
   const handleEditSubmit = async (formData: ReminderFormData) => {
@@ -120,11 +87,17 @@ export default function ReminderCard({ reminder, onEdit, onDelete, onComplete, o
     setIsSnoozeDialogOpen(false)
   }
 
-  const isOverdue = (() => {
+    const isOverdue = (() => {
     try {
-      // Handle ISO date format (2025-09-09T00:00:00.000Z) and time separately
+      // Use fullDateTime if available (most accurate), otherwise fall back to combining date and time
       let dueDate: Date
-      if (reminder.date.includes('T')) {
+      
+      if (reminder.fullDateTime) {
+        // The fullDateTime field contains the correct due date and time
+        // We need to parse it as local time, not UTC
+        const dateTimeStr = reminder.fullDateTime.replace('Z', '') // Remove Z to treat as local time
+        dueDate = new Date(dateTimeStr)
+      } else if (reminder.date.includes('T')) {
         // If date is already in ISO format, use it directly
         dueDate = new Date(reminder.date)
       } else {
@@ -137,14 +110,18 @@ export default function ReminderCard({ reminder, onEdit, onDelete, onComplete, o
       return false
     }
   })()
-  
+
   const isCompleted = reminder.status === "completed"
-  
+
   const dueDate = (() => {
     try {
-      // Handle ISO date format (2025-09-09T00:00:00.000Z) and time separately
+      // Use fullDateTime if available (most accurate), otherwise fall back to combining date and time
       let date: Date
-      if (reminder.date.includes('T')) {
+
+      if (reminder.fullDateTime) {
+        // Use the fullDateTime field which contains the correct combined date and time
+        date = new Date(reminder.fullDateTime)
+      } else if (reminder.date.includes('T')) {
         // If date is already in ISO format, use it directly
         date = new Date(reminder.date)
       } else {
@@ -183,7 +160,7 @@ export default function ReminderCard({ reminder, onEdit, onDelete, onComplete, o
                 className={`flex items-center gap-2 text-sm ${isOverdue ? "text-destructive" : "text-muted-foreground"}`}
               >
                 <Clock className="h-4 w-4" />
-                <span className="whitespace-nowrap">{formatTimeRemaining(reminder.date, reminder.time)}</span>
+                <span className="whitespace-nowrap">{formatTimeRemaining()}</span>
               </div>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -221,8 +198,7 @@ export default function ReminderCard({ reminder, onEdit, onDelete, onComplete, o
           {reminder.notes && <p className="text-sm text-muted-foreground mb-4">{reminder.notes}</p>}
           <div className="flex items-center justify-between text-sm text-muted-foreground">
             <div>
-              {isCompleted ? "Completed" : isOverdue ? "Was due" : "Due"}: {dueDate ? dueDate.toLocaleDateString() : "Invalid date"} at{" "}
-              {dueDate ? dueDate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "Invalid time"}
+              {isCompleted ? "Completed" : isOverdue ? "Was due" : "Due"}: {formatDateTimeDisplay(reminder.date, reminder.time)}
             </div>
             {!isCompleted && (
               <div className="flex gap-2">

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Bell, ArrowLeft } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation"
 import dynamic from "next/dynamic"
 import { reminderAPI } from "@/services/api"
 import { useToast } from "@/hooks/use-toast"
+import { useAuth } from "@/hooks/use-auth"
 
 // Dynamically import ReminderForm to prevent SSR issues
 const ReminderForm = dynamic(() => import("@/components/reminder-form"), {
@@ -22,6 +23,14 @@ export default function AddReminderPage() {
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
   const { toast } = useToast()
+  const { isLoggedIn, isLoading: authLoading } = useAuth()
+
+  // Check authentication
+  useEffect(() => {
+    if (!authLoading && !isLoggedIn) {
+      router.push("/login")
+    }
+  }, [isLoggedIn, authLoading, router])
 
   const handleSubmit = async (formData: ReminderFormData) => {
     setIsLoading(true)

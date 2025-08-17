@@ -60,6 +60,13 @@ export interface Reminder {
   updatedAt: string
   completedAt?: string
   snoozedUntil?: string
+  fullDateTime?: string
+  isOverdue?: boolean
+  snoozeCount?: number
+  notificationSent?: boolean
+  isParentReminder?: boolean
+  createdBy?: string
+  notificationSentAt?: string
 }
 
 export interface ReminderFormData {

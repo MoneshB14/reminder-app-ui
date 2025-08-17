@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Calendar, Loader2 } from "lucide-react"
 import { Switch } from "@/components/ui/switch"
+import { formatDateToYYYYMMDD, formatDateTimeDisplay } from "@/lib/utils"
 
 export interface ReminderFormData {
   id?: string
@@ -346,8 +347,7 @@ export default function ReminderForm({
               <h3 className="font-semibold">{formData.eventName}</h3>
               {formData.date && formData.time && (
                 <p className="text-sm text-muted-foreground">
-                  Due: {new Date(`${formData.date}T${formData.time}`).toLocaleDateString()} at{" "}
-                  {new Date(`${formData.date}T${formData.time}`).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                  Due: {formatDateTimeDisplay(formData.date, formData.time)}
                 </p>
               )}
               <div className="flex gap-2">

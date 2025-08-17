@@ -11,12 +11,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Bell, Plus, Search, CheckCircle2, CalendarIcon } from "lucide-react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import ReminderCard from "@/components/reminder-card"
 import CalendarView from "@/components/calendar-view"
 import { useNotifications } from "@/hooks/use-notifications"
 import { reminderAPI, type Reminder, type CalendarEvent } from "@/services/api"
 import { useToast } from "@/hooks/use-toast"
 import { Badge } from "@/components/ui/badge"
+import { formatDateToYYYYMMDD, formatDateTimeDisplay } from "@/lib/utils"
+import { useAuth } from "@/hooks/use-auth"
+import { LogOut } from "lucide-react"
 
 export default function DashboardPage() {
   const [searchQuery, setSearchQuery] = useState("")
@@ -35,16 +39,28 @@ export default function DashboardPage() {
     thisWeek: 0,
   })
   const { toast } = useToast()
+  const { isLoggedIn, userEmail, isLoading: authLoading, logout } = useAuth()
+  const router = useRouter()
 
   const { requestPermission, permission, isSupported } = useNotifications({
     reminders,
     enabled: notificationsEnabled,
   })
 
+  // Check authentication
+  useEffect(() => {
+    if (!authLoading && !isLoggedIn) {
+      router.push("/login")
+      return
+    }
+  }, [isLoggedIn, authLoading, router])
+
   // Fetch reminders and statistics on component mount
   useEffect(() => {
-    fetchDashboardData()
-  }, [])
+    if (isLoggedIn) {
+      fetchDashboardData()
+    }
+  }, [isLoggedIn])
 
   // Handle mounting state to prevent hydration issues
   useEffect(() => {
@@ -244,9 +260,15 @@ export default function DashboardPage() {
   const upcomingReminders = filteredReminders.filter((r) => r.status === "pending")
   const overdueReminders = filteredReminders.filter((r) => {
     try {
-      // Handle ISO date format (2025-09-09T00:00:00.000Z) and time separately
+      // Use fullDateTime if available (most accurate), otherwise fall back to combining date and time
       let dueDate: Date
-      if (r.date.includes('T')) {
+      
+      if (r.fullDateTime) {
+        // The fullDateTime field contains the correct due date and time
+        // We need to parse it as local time, not UTC
+        const dateTimeStr = r.fullDateTime.replace('Z', '') // Remove Z to treat as local time
+        dueDate = new Date(dateTimeStr)
+      } else if (r.date.includes('T')) {
         // If date is already in ISO format, use it directly
         dueDate = new Date(r.date)
       } else {
@@ -294,29 +316,19 @@ export default function DashboardPage() {
               </Link>
             </div>
             <div className="flex items-center gap-4">
-              <Switch
-                id="notifications"
-                checked={notificationsEnabled}
-                onCheckedChange={async (checked) => {
-                  if (checked && permission !== "granted") {
-                    const granted = await requestPermission()
-                    if (granted) {
-                      setNotificationsEnabled(true)
-                    }
-                  } else {
-                    setNotificationsEnabled(checked)
-                  }
-                }}
-              />
-              {/* <Label htmlFor="notifications" className="text-sm">
-                Browser Notifications
-              </Label> */}
+              <div className="text-sm text-muted-foreground">
+                {userEmail}
+              </div>
               <Link href="/add-reminder">
                 <Button className="bg-primary hover:bg-primary/90">
                   <Plus className="h-4 w-4 mr-2" />
                   Add Reminder
                 </Button>
               </Link>
+              <Button variant="outline" onClick={logout}>
+                <LogOut className="h-4 w-4 mr-2" />
+                Logout
+              </Button>
             </div>
           </div>
         </div>
@@ -606,9 +618,7 @@ export default function DashboardPage() {
                     <div className="space-y-2">
                       <h5 className="font-medium">{selectedEvent.title}</h5>
                       <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <span>{new Date(selectedEvent.date).toLocaleDateString()}</span>
-                        <span>at</span>
-                        <span>{selectedEvent.time}</span>
+                        <span>{formatDateTimeDisplay(selectedEvent.date, selectedEvent.time)}</span>
                       </div>
                       <div className="flex items-center gap-2">
                         <Badge variant="outline">{selectedEvent.category}</Badge>
@@ -636,9 +646,9 @@ export default function DashboardPage() {
                           <p>📧 Notification sent</p>
                         )}
                         {selectedEvent.eventCompletedAt && (
-                          <p>✅ Completed on: {new Date(selectedEvent.eventCompletedAt).toLocaleDateString()}</p>
+                          <p>✅ Completed on: {formatDateToYYYYMMDD(selectedEvent.eventCompletedAt)}</p>
                         )}
-                        <p>Created: {new Date(selectedEvent.createdAt).toLocaleDateString()}</p>
+                        <p>Created: {formatDateToYYYYMMDD(selectedEvent.createdAt)}</p>
                       </div>
                     </div>
                   </CardContent>
